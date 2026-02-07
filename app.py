@@ -121,25 +121,29 @@ if uploaded_file is not None:
                 
                 # Check extraction directory
                 st.write(f"Extracted dir exists: {os.path.exists('/tmp/pdf2htmlex_extracted')}")
-                if os.path.exists('/tmp/pdf2htmlex_extracted'):
-                    st.write("Contents of /tmp/pdf2htmlex_extracted:")
-                    st.code('\n'.join(os.listdir('/tmp/pdf2htmlex_extracted')))
-                    
-                    # Check usr/share
-                    share_path = '/tmp/pdf2htmlex_extracted/usr/share'
-                    if os.path.exists(share_path):
-                        st.write(f"Contents of {share_path}:")
-                        st.code('\n'.join(os.listdir(share_path)))
-                        
-                        # Check for pdf2htmlEX dir
-                        pdf2html_data = '/tmp/pdf2htmlex_extracted/usr/share/pdf2htmlEX'
-                        if os.path.exists(pdf2html_data):
-                            st.write(f"✓ Data dir found! Contents:")
-                            st.code('\n'.join(os.listdir(pdf2html_data)))
-                        else:
-                            st.error(f"✗ {pdf2html_data} does NOT exist")
-                    else:
-                        st.error(f"✗ {share_path} does NOT exist")
+                
+                # Search for manifest file
+                manifest_location = None
+                data_dir = None
+                
+                # Try the correct location first
+                correct_location = '/tmp/pdf2htmlex_extracted/usr/local/share/pdf2htmlEX'
+                if os.path.exists(correct_location):
+                    data_dir = correct_location
+                    st.write(f"✓ Found data dir at: {data_dir}")
+                else:
+                    st.write("Searching for manifest file...")
+                    for root, dirs, files in os.walk('/tmp/pdf2htmlex_extracted'):
+                        if 'manifest' in files:
+                            manifest_location = root
+                            st.write(f"✓ Found manifest in: {root}")
+                            st.write(f"  Files: {files}")
+                            data_dir = root
+                            break
+                
+                if not data_dir:
+                    st.error("Could not find pdf2htmlEX data directory!")
+                    st.stop()
                 
                 # Build conversion command
                 output_name = "output.html"
@@ -147,8 +151,6 @@ if uploaded_file is not None:
                 # Set environment for AppRun to find data files
                 env = os.environ.copy()
                 env['APPDIR'] = '/tmp/pdf2htmlex_extracted'
-                
-                data_dir = '/tmp/pdf2htmlex_extracted/usr/share/pdf2htmlEX'
                 
                 cmd = [
                     pdf2htmlex,
