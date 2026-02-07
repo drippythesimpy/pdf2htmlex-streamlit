@@ -114,19 +114,55 @@ if uploaded_file is not None:
                 with open(pdf_path, 'wb') as f:
                     f.write(uploaded_file.read())
                 
+                st.write("### Debug Info")
+                st.write(f"PDF saved to: {pdf_path}")
+                st.write(f"PDF exists: {os.path.exists(pdf_path)}")
+                st.write(f"PDF size: {os.path.getsize(pdf_path)} bytes")
+                
+                # Check extraction directory
+                st.write(f"Extracted dir exists: {os.path.exists('/tmp/pdf2htmlex_extracted')}")
+                if os.path.exists('/tmp/pdf2htmlex_extracted'):
+                    st.write("Contents of /tmp/pdf2htmlex_extracted:")
+                    st.code('\n'.join(os.listdir('/tmp/pdf2htmlex_extracted')))
+                    
+                    # Check usr/share
+                    share_path = '/tmp/pdf2htmlex_extracted/usr/share'
+                    if os.path.exists(share_path):
+                        st.write(f"Contents of {share_path}:")
+                        st.code('\n'.join(os.listdir(share_path)))
+                        
+                        # Check for pdf2htmlEX dir
+                        pdf2html_data = '/tmp/pdf2htmlex_extracted/usr/share/pdf2htmlEX'
+                        if os.path.exists(pdf2html_data):
+                            st.write(f"✓ Data dir found! Contents:")
+                            st.code('\n'.join(os.listdir(pdf2html_data)))
+                        else:
+                            st.error(f"✗ {pdf2html_data} does NOT exist")
+                    else:
+                        st.error(f"✗ {share_path} does NOT exist")
+                
                 # Build conversion command
                 output_name = "output.html"
                 
-                # AppRun sets up its own environment, so we don't need to
+                # Set environment for AppRun to find data files
+                env = os.environ.copy()
+                env['APPDIR'] = '/tmp/pdf2htmlex_extracted'
+                
+                data_dir = '/tmp/pdf2htmlex_extracted/usr/share/pdf2htmlEX'
+                
                 cmd = [
                     pdf2htmlex,
+                    f'--data-dir={data_dir}',
                     f'--zoom={zoom}',
-                    pdf_path,
-                    output_name
                 ]
                 
                 if not embed_fonts:
-                    cmd.insert(1, '--embed-font=0')
+                    cmd.append('--embed-font=0')
+                
+                cmd.extend([pdf_path, output_name])
+                
+                st.write("### Command to execute:")
+                st.code(' '.join(cmd))
                 
                 # Run conversion
                 with st.spinner("Converting... This may take a moment."):
@@ -135,7 +171,8 @@ if uploaded_file is not None:
                         cwd=tmpdir,
                         capture_output=True,
                         text=True,
-                        timeout=300
+                        timeout=300,
+                        env=env
                     )
                 
                 # Debug: Show what happened
