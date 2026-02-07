@@ -15,32 +15,59 @@ st.markdown("Convert your PDF files to HTML while preserving formatting, figures
 
 @st.cache_resource
 def setup_pdf2htmlex():
-    """Download and setup pdf2htmlEX AppImage"""
-    appimage_path = "/tmp/pdf2htmlEX.AppImage"
+    """Download and extract pdf2htmlEX AppImage (FUSE-less extraction)"""
     
-    if os.path.exists(appimage_path):
-        return appimage_path
+    extracted_dir = "/tmp/pdf2htmlex_extracted"
+    binary_path = f"{extracted_dir}/usr/bin/pdf2htmlEX"
+    
+    # Check if already extracted
+    if os.path.exists(binary_path):
+        return binary_path
     
     try:
         with st.spinner("Setting up pdf2htmlEX (first time only)..."):
-            url = "https://github.com/pdf2htmlEX/pdf2htmlEX/releases/download/v0.18.8.rc1/pdf2htmlEX-0.18.8.rc1-master-20200630-Ubuntu-bionic-x86_64.AppImage"
+            appimage_path = "/tmp/pdf2htmlEX.AppImage"
             
-            # Download
+            # Download AppImage
+            if not os.path.exists(appimage_path):
+                url = "https://github.com/pdf2htmlEX/pdf2htmlEX/releases/download/v0.18.8.rc1/pdf2htmlEX-0.18.8.rc1-master-20200630-Ubuntu-bionic-x86_64.AppImage"
+                
+                result = subprocess.run(
+                    ['wget', '-q', '-O', appimage_path, url],
+                    capture_output=True,
+                    timeout=120
+                )
+                
+                if result.returncode != 0:
+                    st.error("Failed to download pdf2htmlEX")
+                    return None
+                
+                subprocess.run(['chmod', '+x', appimage_path], check=True)
+            
+            # Extract AppImage (no FUSE needed!)
+            os.makedirs(extracted_dir, exist_ok=True)
+            
             result = subprocess.run(
-                ['wget', '-q', '-O', appimage_path, url],
+                [appimage_path, '--appimage-extract'],
+                cwd='/tmp',
                 capture_output=True,
-                timeout=120
+                text=True,
+                timeout=60
             )
             
-            if result.returncode != 0:
-                st.error("Failed to download pdf2htmlEX")
+            # Move extracted contents
+            if os.path.exists('/tmp/squashfs-root'):
+                if os.path.exists(extracted_dir):
+                    shutil.rmtree(extracted_dir)
+                shutil.move('/tmp/squashfs-root', extracted_dir)
+            
+            if os.path.exists(binary_path):
+                st.success("Setup complete!")
+                return binary_path
+            else:
+                st.error(f"Extraction failed. Binary not found at {binary_path}")
                 return None
             
-            # Make executable
-            subprocess.run(['chmod', '+x', appimage_path], check=True)
-            st.success("Setup complete!")
-            
-        return appimage_path
     except Exception as e:
         st.error(f"Setup error: {e}")
         return None
@@ -88,6 +115,11 @@ if uploaded_file is not None:
                 
                 # Build conversion command
                 output_name = "output.html"
+                
+                # Set library path for extracted binary
+                env = os.environ.copy()
+                env['LD_LIBRARY_PATH'] = '/tmp/pdf2htmlex_extracted/usr/lib:' + env.get('LD_LIBRARY_PATH', '')
+                
                 cmd = [
                     pdf2htmlex,
                     f'--zoom={zoom}',
@@ -105,7 +137,8 @@ if uploaded_file is not None:
                         cwd=tmpdir,
                         capture_output=True,
                         text=True,
-                        timeout=300  # 5 minute timeout
+                        timeout=300,
+                        env=env
                     )
                 
                 # Check if conversion succeeded
