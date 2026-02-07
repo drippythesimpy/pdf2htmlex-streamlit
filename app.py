@@ -138,10 +138,28 @@ if uploaded_file is not None:
                         timeout=300
                     )
                 
+                # Debug: Show what happened
+                st.write(f"Return code: {result.returncode}")
+                if result.stdout:
+                    st.write("STDOUT:", result.stdout)
+                if result.stderr:
+                    st.write("STDERR:", result.stderr)
+                
                 # Check if conversion succeeded
                 output_html = os.path.join(tmpdir, output_name)
                 
+                # Debug: Check what files were created
+                st.write("Files in tmpdir:", os.listdir(tmpdir))
+                
                 if os.path.exists(output_html):
+                    file_size = os.path.getsize(output_html)
+                    st.write(f"Output HTML size: {file_size} bytes")
+                    
+                    if file_size == 0:
+                        st.error("❌ Output file is empty!")
+                        st.write("Command:", ' '.join(cmd))
+                        st.stop()
+                    
                     # Read the HTML file
                     with open(output_html, 'r', encoding='utf-8', errors='ignore') as f:
                         html_content = f.read()
