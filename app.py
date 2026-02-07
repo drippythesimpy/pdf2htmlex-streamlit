@@ -18,11 +18,11 @@ def setup_pdf2htmlex():
     """Download and extract pdf2htmlEX AppImage (FUSE-less extraction)"""
     
     extracted_dir = "/tmp/pdf2htmlex_extracted"
-    binary_path = f"{extracted_dir}/usr/bin/pdf2htmlEX"
+    apprun_path = f"{extracted_dir}/AppRun"
     
     # Check if already extracted
-    if os.path.exists(binary_path):
-        return binary_path
+    if os.path.exists(apprun_path):
+        return apprun_path
     
     try:
         with st.spinner("Setting up pdf2htmlEX (first time only)..."):
@@ -61,11 +61,12 @@ def setup_pdf2htmlex():
                     shutil.rmtree(extracted_dir)
                 shutil.move('/tmp/squashfs-root', extracted_dir)
             
-            if os.path.exists(binary_path):
+            if os.path.exists(apprun_path):
+                subprocess.run(['chmod', '+x', apprun_path], check=True)
                 st.success("Setup complete!")
-                return binary_path
+                return apprun_path
             else:
-                st.error(f"Extraction failed. Binary not found at {binary_path}")
+                st.error(f"Extraction failed. AppRun not found at {apprun_path}")
                 return None
             
     except Exception as e:
@@ -116,10 +117,7 @@ if uploaded_file is not None:
                 # Build conversion command
                 output_name = "output.html"
                 
-                # Set library path for extracted binary
-                env = os.environ.copy()
-                env['LD_LIBRARY_PATH'] = '/tmp/pdf2htmlex_extracted/usr/lib:' + env.get('LD_LIBRARY_PATH', '')
-                
+                # AppRun sets up its own environment, so we don't need to
                 cmd = [
                     pdf2htmlex,
                     f'--zoom={zoom}',
@@ -137,8 +135,7 @@ if uploaded_file is not None:
                         cwd=tmpdir,
                         capture_output=True,
                         text=True,
-                        timeout=300,
-                        env=env
+                        timeout=300
                     )
                 
                 # Check if conversion succeeded
